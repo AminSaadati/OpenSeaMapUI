@@ -1,0 +1,2 @@
+# seamapuiproject
+A JavaScript project

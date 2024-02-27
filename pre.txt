@@ -1,0 +1,239 @@
+import Map from 'ol/Map.js';
+import OSM, { ATTRIBUTION } from 'ol/source/OSM.js';
+import View from 'ol/View.js';
+import { Projection, fromLonLat } from 'ol/proj.js';
+import { transform } from 'ol/proj.js';
+import Feature from 'ol/Feature.js';
+import Point from 'ol/geom/Point.js';
+import { Icon, Style } from 'ol/style.js';
+import VectorLayer from 'ol/layer/Vector.js';
+import VectorSource from 'ol/source/Vector.js';
+import Overlay from 'ol/Overlay.js';
+import TileLayer from 'ol/layer/Tile.js';
+import { Circle } from 'ol/geom.js';
+import { circular } from 'ol/geom/Polygon';
+import Control from 'ol/control/Control';
+
+
+
+// 1 layer
+const openCycleMapLayer = new TileLayer({
+    source: new OSM({
+        // attributions: [
+        //   'All maps © <a href="https://www.opencyclemap.org/">OpenCycleMap</a>',
+        //   ATTRIBUTION,
+        // ],
+        // url:
+        //   'https://{a-c}.tile.thunderforest.com/cycle/{z}/{x}/{y}.png' +
+        //   '?apikey=Your API key from https://www.thunderforest.com/docs/apikeys/ here',
+    }),
+});
+// 2 layer
+const openSeaMapLayer = new TileLayer({
+    source: new OSM({
+        attributions: [
+            'All maps © <a href="https://www.openseamap.org/">OpenSeaMap</a>',
+            ATTRIBUTION,
+        ],
+        opaque: false,
+        url: 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+        //url: 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+
+    }),
+});
+
+// 3 layer 
+// const coords = [412.207031, 26.571130];
+const coords = [412.207031, 37.835819];
+
+
+const circleFeature = new Feature({
+    geometry: new Circle( fromLonLat([412.207031, 37.835819]), 50),
+});
+circleFeature.setStyle(
+    new Style({
+        renderer(coordinates, state) {
+            const [[x, y], [x1, y1]] = coordinates;
+            const ctx = state.context;
+            const dx = x1 - x;
+            const dy = y1 - y;
+            const radius = Math.sqrt(dx * dx + dy * dy);
+
+            const innerRadius = 0;
+            const outerRadius = radius * 1.4;
+
+            const gradient = ctx.createRadialGradient(
+                x,
+                y,
+                innerRadius,
+                x,
+                y,
+                outerRadius
+            );
+            gradient.addColorStop(0, 'rgba(255,0,0,0)');
+            gradient.addColorStop(0.6, 'rgba(255,0,0,0.2)');
+            gradient.addColorStop(1, 'rgba(255,0,0,0.8)');
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, 2 * Math.PI, true);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            ctx.arc(x, y, radius, 0, 2 * Math.PI, true);
+            ctx.strokeStyle = 'rgba(255,0,0,1)';
+            ctx.stroke();
+        },
+    })
+);
+
+
+debugger
+const accuracy = circular(coords, 50);
+debugger
+// const iconFeature = new Feature({ 
+//      geometry: new  Point([412.207031, 37.835819]),
+//     // geometry: new Point(fromLonLat([parseFloat(414.008544), parseFloat(26.571130)]))
+//     // geometry: new Point(fromLonLat([parseFloat(414.008544), parseFloat(26.571130)]),'EPSG:4326', 'EPSG:21781'),
+//     name: 'location selected for the item',
+//     // population: 4000,
+//     // rainfall: 500,
+// });
+
+const vectorsource = new VectorSource();
+// const layer = new VectorLayer({
+//   source: vectorsource,
+// });
+vectorsource.clear(true);
+vectorsource.addFeatures([
+    // new Feature(
+    //   accuracy.transform('EPSG:4326', map.getView().getProjection())
+    // ),
+
+    new Feature(new Point(fromLonLat(coords))),
+]);
+vectorsource.addFeature(new Feature(circleFeature));
+
+
+// const iconStyle = new Style({
+//     image: new Icon({
+//         anchor: [0.5, 46],
+//         anchorXUnits: 'fraction',
+//         anchorYUnits: 'pixels',
+//         // src: 'data/icon.png',
+//         // src: "https://openlayers.org/en/v4.6.5/examples/data/icon.png"
+//          src: 'https://openlayers.org/en/latest/examples/data/icon.png'
+//        // src: 'https://github.com/openlayers/openlayers/blob/v3.20.1/examples/resources/logo-70x70.png'
+
+//         //src: '../src/img/location.gif'
+
+//     }),
+// });
+
+// iconFeature.setStyle(iconStyle);
+
+// const vectorSource = new VectorSource({
+//     features: [iconFeature],
+// });
+
+
+const vectorLayer = new VectorLayer({
+    source: vectorsource,
+});
+
+
+
+// ************** diffrence color of map 
+//import OGCMapTile from 'ol/source/OGCMapTile.js';
+// const rasterLayer = new TileLayer({
+//     source: new OGCMapTile({
+//         url: 'https://maps.gnosis.earth/ogcapi/collections/NaturalEarth:raster:HYP_HR_SR_OB_DR/map/tiles/WebMercatorQuad',
+//         crossOrigin: '',
+//     }),
+// });
+
+
+// 4 layer
+
+const map = new Map({
+    layers: [openCycleMapLayer, openSeaMapLayer, vectorLayer],
+    target: 'map',
+    view: new View({
+        // maxZoom: 25,
+        // center: fromLonLat([414.008544, 26.571130]),
+        // zoom: 18,
+
+        maxZoom: 25,
+        center: fromLonLat([412.207031, 37.835819]),
+        zoom: 6,
+
+    })
+});
+
+
+
+//Mehtod for layer 3
+
+const element = document.getElementById('popup');
+
+const popup = new Overlay({
+    element: element,
+    positioning: 'bottom-center',
+    stopEvent: false,
+});
+map.addOverlay(popup);
+
+let popover;
+function disposePopover() {
+    if (popover) {
+        popover.dispose();
+        popover = undefined;
+    }
+}
+// display popup on click
+map.on('click', function (evt) {
+    debugger
+    const feature = map.forEachFeatureAtPixel(evt.pixel, function (feature) {
+        return feature;
+    });
+    disposePopover();
+    if (!feature) {
+        return;
+    }
+    popup.setPosition(evt.coordinate);
+    popover = new bootstrap.Popover(element, {
+        placement: 'top',
+        html: true,
+        content: feature.get('name'),
+    });
+    popover.show();
+});
+
+// change mouse cursor when over marker
+
+map.on('pointermove', function (e) {
+    var pixel = map.getEventPixel(e.originalEvent);
+    var hit = map.hasFeatureAtPixel(pixel);
+    map.getViewport().style.cursor = hit ? 'pointer' : '';
+});
+// Close the popup when the map is moved
+map.on('movestart', disposePopover);
+
+
+const locate = document.createElement('div');
+locate.className = 'ol-control ol-unselectable locate';
+locate.innerHTML = '<button title="Locate me">◎</button>';
+locate.addEventListener('click', function () {
+    if (!vectorsource.isEmpty()) {
+        map.getView().fit(vectorsource.getExtent(), {
+            maxZoom: 8,
+            duration: 500,
+        });
+    }
+});
+map.addControl(
+    new Control({
+        element: locate,
+    })
+);
+
+
+// method for layer ??
